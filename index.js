@@ -1,28 +1,41 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const axios = require('axios');
-const app = express();
-const port = 3000;
+const fetch = require('node-fetch');
 
-app.use(bodyParser.json());
-
-app.post('/api', async (req, res) => {
-  const { apiUrl, method, headers, body } = req.body;
+module.exports = async (req, res) => {
+  // Đảm bảo request là POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
-    const response = await axios({
-      url: apiUrl,
+    const { url, method, headers, body } = req.body;
+
+    // Kiểm tra xem có đủ thông tin cần thiết không
+    if (!url || !method) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // Cấu hình request đến API GHN
+    const fetchOptions = {
       method: method,
-      headers: headers,
-      data: body
-    });
+      headers: headers || {},
+    };
 
-    res.json(response.data);
+    // Thêm body nếu có
+    if (body) {
+      fetchOptions.body = JSON.stringify(body);
+    }
+
+    // Gửi request đến API GHN
+    const response = await fetch(url, fetchOptions);
+
+    // Đọc response body
+    const responseBody = await response.text();
+
+    // Gửi response về cho client (Google Apps Script)
+    res.status(response.status).send(responseBody);
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Proxy error:', error);
+    res.status(500).json({ error: 'An error occurred while proxying the request' });
   }
-});
-
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+};
